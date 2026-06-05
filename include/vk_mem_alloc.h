@@ -9529,6 +9529,26 @@ void VmaBlockMetadata_TLSF::Free(VmaAllocHandle allocHandle)
         MergeBlock(next, block);
         InsertFreeBlock(next);
     }
+
+    // [AetherVk patch] Fix debug-margin TLSF fragmentation.
+    // When VMA_DEBUG_MARGIN > 0, Free() inserts 16-byte sentinel blocks between
+    // allocations and refuses to merge with a preceding free block whose size
+    // equals debugMargin (line 9516: prev->size != debugMargin).  Alignment-
+    // padding blocks created by Alloc() that happen to be exactly debugMargin
+    // bytes are indistinguishable from real margin sentinels and become
+    // permanently orphaned, leaving m_NullBlock->offset != 0 even after every
+    // user allocation has been freed.  This triggers the IsEmpty() assertion in
+    // VmaDeviceMemoryBlock::Destroy().
+    //
+    // Fix: once m_AllocCount reaches 0 all margins are dead — force-clear the
+    // metadata so the block can be reclaimed cleanly.
+    //
+    // Guard: debugMargin > 0 ensures release builds (VMA_DEBUG_MARGIN == 0) are
+    // byte-identical to upstream VMA — this path is never entered.
+    if (debugMargin > 0 && m_AllocCount == 0 && !IsEmpty())
+    {
+        Clear();
+    }
 }
 
 void VmaBlockMetadata_TLSF::GetAllocationInfo(VmaAllocHandle allocHandle, VmaVirtualAllocationInfo& outInfo)
