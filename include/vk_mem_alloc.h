@@ -10881,8 +10881,23 @@ VkResult VmaDeviceMemoryBlock::ValidateMagicValueAfterAllocation(VmaAllocator hA
         return res;
     }
 
+    fprintf(stderr, "VMA FREE-CHECK: allocOffset=%llu allocSize=%llu\n",
+            (unsigned long long)allocOffset, (unsigned long long)allocSize);
     if (!VmaValidateMagicValue(pData, allocOffset + allocSize))
     {
+        // Diagnostic: dump the allocation info and the corrupted sentinel bytes.
+        const unsigned char* sentinel = (const unsigned char*)pData + allocOffset + allocSize;
+        // Also dump the last 16 bytes of the buffer data for context
+        const unsigned char* tail = sentinel - 16;
+        fprintf(stderr, "VMA CORRUPTION: allocOffset=%llu allocSize=%llu\n",
+                (unsigned long long)allocOffset, (unsigned long long)allocSize);
+        fprintf(stderr, "  data_tail = [");
+        for (int i = 0; i < 16; ++i)
+            fprintf(stderr, "%s0x%02X", i ? "," : "", tail[i]);
+        fprintf(stderr, "]\n  sentinel  = [");
+        for (int i = 0; i < VMA_DEBUG_MARGIN; ++i)
+            fprintf(stderr, "%s0x%02X", i ? "," : "", sentinel[i]);
+        fprintf(stderr, "]\n");
         VMA_ASSERT(0 && "MEMORY CORRUPTION DETECTED AFTER FREED ALLOCATION!");
     }
 
@@ -11647,6 +11662,11 @@ void VmaBlockVector::Free(VmaAllocation hAllocation)
 
         if (IsCorruptionDetectionEnabled())
         {
+            const char* allocName = hAllocation->GetName();
+            fprintf(stderr, "VMA FREE-CHECK: name='%s' offset=%llu size=%llu\n",
+                    allocName ? allocName : "(unnamed)",
+                    (unsigned long long)hAllocation->GetOffset(),
+                    (unsigned long long)hAllocation->GetSize());
             VkResult res = pBlock->ValidateMagicValueAfterAllocation(m_hAllocator, hAllocation->GetOffset(), hAllocation->GetSize());
             VMA_ASSERT(res == VK_SUCCESS && "Couldn't map block memory to validate magic value.");
         }
