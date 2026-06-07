@@ -3824,10 +3824,16 @@ static void VmaWriteMagicValue(void* pData, VkDeviceSize offset)
 static bool VmaValidateMagicValue(const void* pData, VkDeviceSize offset)
 {
 #if VMA_DEBUG_MARGIN > 0 && VMA_DEBUG_DETECT_CORRUPTION
+    fprintf(stderr, "VmaValidateMagicValue: pData=%p offset=%llu\n", pData, (unsigned long long)offset);
+    if (!pData) {
+        fprintf(stderr, "VmaValidateMagicValue: pData is NULL!\n");
+        return false;
+    }
     const uint32_t* pSrc = (const uint32_t*)((const char*)pData + offset);
     const size_t numberCount = VMA_DEBUG_MARGIN / sizeof(uint32_t);
     for (size_t i = 0; i < numberCount; ++i, ++pSrc)
     {
+        fprintf(stderr, "VmaValidateMagicValue: reading pSrc=%p\n", pSrc);
         if (*pSrc != VMA_CORRUPTION_DETECTION_MAGIC_VALUE)
         {
             return false;
